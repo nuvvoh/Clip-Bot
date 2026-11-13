@@ -23,6 +23,10 @@ class VideoClipper:
                 continue
             
             clip = video.subclip(start_time, end_time)
+            
+            # Convert to Shorts format (9:16 vertical)
+            clip = self._convert_to_shorts_format(clip)
+            
             output_path = f"{self.output_dir}/clip_{i+1}_{int(timestamp)}.mp4"
             
             clip.write_videofile(
@@ -46,6 +50,36 @@ class VideoClipper:
         
         video.close()
         return clips_created
+    
+    def _convert_to_shorts_format(self, clip):
+        """Convert clip to YouTube Shorts format (9:16, 1080x1920)"""
+        target_width = 1080
+        target_height = 1920
+        target_ratio = target_height / target_width  # 16:9 = 1.777
+        
+        # Get current dimensions
+        current_width, current_height = clip.size
+        current_ratio = current_height / current_width
+        
+        if current_ratio < target_ratio:
+            # Video is too wide (horizontal) - crop sides
+            new_width = int(current_height / target_ratio)
+            x_center = current_width / 2
+            x1 = int(x_center - new_width / 2)
+            x2 = int(x_center + new_width / 2)
+            clip = clip.crop(x1=x1, x2=x2)
+        else:
+            # Video is too tall or already vertical - crop top/bottom
+            new_height = int(current_width * target_ratio)
+            y_center = current_height / 2
+            y1 = int(y_center - new_height / 2)
+            y2 = int(y_center + new_height / 2)
+            clip = clip.crop(y1=y1, y2=y2)
+        
+        # Resize to exact Shorts dimensions
+        clip = clip.resize((target_width, target_height))
+        
+        return clip
     
     def edit_with_prompt(self, clip_path, edit_prompt):
         """Edit clip based on natural language prompt"""
