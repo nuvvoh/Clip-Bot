@@ -29,6 +29,14 @@ class VideoClipper:
             
             output_path = f"{self.output_dir}/clip_{i+1}_{int(timestamp)}.mp4"
             
+            # Use FFmpeg padding filter for maximum quality (no composite quality loss)
+            if hasattr(clip, '_padding_info'):
+                pad = clip._padding_info
+                pad_filter = f"pad={pad['target_width']}:{pad['target_height']}:{pad['x_offset']}:{pad['y_offset']}:color=black"
+                ffmpeg_params = ['-crf', '15', '-profile:v', 'high', '-level', '4.2', '-pix_fmt', 'yuv420p', '-vf', pad_filter]
+            else:
+                ffmpeg_params = ['-crf', '15', '-profile:v', 'high', '-level', '4.2', '-pix_fmt', 'yuv420p']
+            
             clip.write_videofile(
                 output_path,
                 codec='libx264',
@@ -37,7 +45,7 @@ class VideoClipper:
                 audio_bitrate='320k',
                 fps=60,
                 preset='veryslow',
-                ffmpeg_params=['-crf', '15', '-profile:v', 'high', '-level', '4.2', '-pix_fmt', 'yuv420p'],
+                ffmpeg_params=ffmpeg_params,
                 logger=None
             )
             
@@ -52,32 +60,38 @@ class VideoClipper:
         return clips_created
     
     def _convert_to_shorts_format(self, clip):
-        """Convert clip to YouTube Shorts format (9:16, 1080x1920)"""
+        """Convert clip to YouTube Shorts format (9:16, 1080x1920) WITHOUT cropping - HIGH QUALITY"""
         target_width = 1080
         target_height = 1920
-        target_ratio = target_height / target_width  # 16:9 = 1.777
         
         # Get current dimensions
         current_width, current_height = clip.size
-        current_ratio = current_height / current_width
         
-        if current_ratio < target_ratio:
-            # Video is too wide (horizontal) - crop sides
-            new_width = int(current_height / target_ratio)
-            x_center = current_width / 2
-            x1 = int(x_center - new_width / 2)
-            x2 = int(x_center + new_width / 2)
-            clip = clip.crop(x1=x1, x2=x2)
-        else:
-            # Video is too tall or already vertical - crop top/bottom
-            new_height = int(current_width * target_ratio)
-            y_center = current_height / 2
-            y1 = int(y_center - new_height / 2)
-            y2 = int(y_center + new_height / 2)
-            clip = clip.crop(y1=y1, y2=y2)
+        # Calculate scaling to fit without cropping
+        width_ratio = target_width / current_width
+        height_ratio = target_height / current_height
         
-        # Resize to exact Shorts dimensions
-        clip = clip.resize((target_width, target_height))
+        # Use the smaller ratio to ensure entire video fits
+        scale_ratio = min(width_ratio, height_ratio)
+        
+        # Calculate new dimensions
+        new_width = int(current_width * scale_ratio)
+        new_height = int(current_height * scale_ratio)
+        
+        # Resize the clip with high quality
+        clip = clip.resize((new_width, new_height))
+        
+        # Add black bars using FFmpeg directly for best quality
+        # We'll do this during the final write_videofile call instead
+        # Store the padding info for later use
+        clip._padding_info = {
+            'target_width': target_width,
+            'target_height': target_height,
+            'video_width': new_width,
+            'video_height': new_height,
+            'x_offset': (target_width - new_width) // 2,
+            'y_offset': (target_height - new_height) // 2
+        }
         
         return clip
     
@@ -99,6 +113,15 @@ class VideoClipper:
             clip = clip.resize(1.2)
         
         output_path = clip_path.replace('.mp4', '_edited.mp4')
+        
+        # Handle padding if present
+        if hasattr(clip, '_padding_info'):
+            pad = clip._padding_info
+            pad_filter = f"pad={pad['target_width']}:{pad['target_height']}:{pad['x_offset']}:{pad['y_offset']}:color=black"
+            ffmpeg_params = ['-crf', '15', '-profile:v', 'high', '-level', '4.2', '-pix_fmt', 'yuv420p', '-vf', pad_filter]
+        else:
+            ffmpeg_params = ['-crf', '15', '-profile:v', 'high', '-level', '4.2', '-pix_fmt', 'yuv420p']
+        
         clip.write_videofile(
             output_path,
             codec='libx264',
@@ -107,7 +130,7 @@ class VideoClipper:
             audio_bitrate='320k',
             fps=60,
             preset='veryslow',
-            ffmpeg_params=['-crf', '15', '-profile:v', 'high', '-level', '4.2', '-pix_fmt', 'yuv420p'],
+            ffmpeg_params=ffmpeg_params,
             logger=None
         )
         clip.close()
