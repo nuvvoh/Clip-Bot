@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Environment variables
+.env
+
+# OS files
+.DS_Store
+.vscode/
+
+# Generated clips and temp files
+clips/
+temp/
+
+# Whisper model cache
+~/.cache/whisper/
+
+# Video files
+*.mp4
+*.avi
+*.mov
+*.mkv
