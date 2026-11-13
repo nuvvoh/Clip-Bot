@@ -29,11 +29,11 @@ class VideoClipper:
                 output_path,
                 codec='libx264',
                 audio_codec='aac',
-                bitrate='8000k',
+                bitrate='15000k',
                 audio_bitrate='320k',
                 fps=60,
-                preset='slow',
-                ffmpeg_params=['-crf', '18'],
+                preset='veryslow',
+                ffmpeg_params=['-crf', '15', '-profile:v', 'high', '-level', '4.2', '-pix_fmt', 'yuv420p'],
                 logger=None
             )
             
@@ -65,7 +65,17 @@ class VideoClipper:
             clip = clip.resize(1.2)
         
         output_path = clip_path.replace('.mp4', '_edited.mp4')
-        clip.write_videofile(output_path, codec='libx264', audio_codec='aac', logger=None)
+        clip.write_videofile(
+            output_path,
+            codec='libx264',
+            audio_codec='aac',
+            bitrate='15000k',
+            audio_bitrate='320k',
+            fps=60,
+            preset='veryslow',
+            ffmpeg_params=['-crf', '15', '-profile:v', 'high', '-level', '4.2', '-pix_fmt', 'yuv420p'],
+            logger=None
+        )
         clip.close()
         
         return output_path
